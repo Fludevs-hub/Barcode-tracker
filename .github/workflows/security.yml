@@ -37,6 +37,7 @@ jobs:
 
       - name: Upload Open Source results
         if: always()
+        continue-on-error: true # skip quietly if code scanning isn't available (private repo without GHAS)
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk-oss.sarif
@@ -53,6 +54,7 @@ jobs:
 
       - name: Upload Snyk Code results
         if: always()
+        continue-on-error: true # skip quietly if code scanning isn't available (private repo without GHAS)
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: snyk-code.sarif
