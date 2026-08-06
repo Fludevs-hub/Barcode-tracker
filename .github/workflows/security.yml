@@ -29,7 +29,8 @@ jobs:
 
       # --- Open Source (dependencies) → SARIF report ---
       - name: Snyk Open Source scan
-        continue-on-error: true # report, don't fail the build
+        id: oss
+        continue-on-error: true # report, don't fail the build (gate step below does that)
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         run: snyk test --all-projects --severity-threshold=high --sarif-file-output=snyk-oss.sarif
@@ -44,6 +45,7 @@ jobs:
       # --- Snyk Code (SAST on our source) → SARIF report ---
       # Requires Snyk Code to be enabled on your Snyk org (free tier supports it).
       - name: Snyk Code scan
+        id: code
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -55,3 +57,35 @@ jobs:
         with:
           sarif_file: snyk-code.sarif
           category: snyk-code
+
+      # --- Email when a high-or-above issue is found ---
+      # snyk test/code exit non-zero when issues at/above the threshold exist, so
+      # a 'failure' outcome on either scan means "high+ found".
+      # ponytail: exit-code heuristic — good enough for a notification trigger.
+      - name: Email on high-severity findings
+        if: steps.oss.outcome == 'failure' || steps.code.outcome == 'failure'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.MAIL_SERVER }}
+          server_port: ${{ secrets.MAIL_PORT }}
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          subject: "[Barcode Tracker] High-severity security findings on ${{ github.ref_name }}"
+          to: ${{ secrets.MAIL_TO }}
+          from: Barcode Tracker CI <${{ secrets.MAIL_USERNAME }}>
+          body: |
+            Snyk found high-or-above severity issues.
+
+            Repo:   ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Run:    ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Alerts: ${{ github.server_url }}/${{ github.repository }}/security/code-scanning
+
+      # --- Severity gate: fail the build on any CRITICAL ---
+      # Runs last so reports upload and the email fires first. No continue-on-error,
+      # so a critical vuln (deps or code) makes the job — and the commit/PR — red.
+      - name: Fail build on critical vulnerabilities
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        run: snyk test --all-projects --severity-threshold=critical
