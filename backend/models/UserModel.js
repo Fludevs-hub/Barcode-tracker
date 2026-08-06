@@ -43,8 +43,15 @@ const UserModel = {
       SELECT id, username, display_name, role, email, mfa_enabled, created_at FROM users
       ORDER BY (role='super_admin') DESC, (role='admin') DESC, (role='operator') DESC, username
     `).all();
+
+    // One query for all study links, grouped in JS — avoids a query per user.
+    const byUser = new Map();
+    for (const { user_id, study_id } of db.prepare('SELECT user_id, study_id FROM user_studies').all()) {
+      if (!byUser.has(user_id)) byUser.set(user_id, []);
+      byUser.get(user_id).push(study_id);
+    }
     for (const u of users) {
-      u.studies = UserModel.getStudyIds(u.id);
+      u.studies = byUser.get(u.id) || [];
       u.mfa_enabled = !!u.mfa_enabled;
     }
     return users;

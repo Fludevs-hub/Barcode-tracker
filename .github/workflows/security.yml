@@ -31,6 +31,14 @@ jobs:
       - name: Install Snyk CLI
         run: npm install -g snyk
 
+      # --- Continuous monitoring: push a snapshot to the Snyk dashboard so Snyk
+      # itself watches this project and alerts on newly disclosed vulns between
+      # CI runs. Main branch only — PRs shouldn't create dashboard projects. ---
+      - name: Snyk monitor
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        run: snyk monitor --all-projects --org=$SNYK_ORG
+
       # --- Open Source (dependencies) → SARIF report ---
       - name: Snyk Open Source scan
         id: oss
@@ -66,6 +74,7 @@ jobs:
       # ponytail: exit-code heuristic — good enough for a notification trigger.
       - name: Email on high-severity findings
         if: steps.oss.outcome == 'failure' || steps.code.outcome == 'failure'
+        continue-on-error: true # a missing/misconfigured mailer must not fail the security job
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.MAIL_SERVER }}

@@ -18,9 +18,12 @@ exports.get = (req, res) => {
     return res.json({ segments: [], issues: [], total: 0, lastOverall: null, lastByStudy: [], recent: [], studies: [] });
   }
 
-  const whereScope = scope.sql ? ` WHERE ${scope.sql}` : '';
-  const byDateDesc = BatchModel.findAll(scope.sql, scope.params, 'b.date_printed DESC, b.id DESC');
+  // One DB read; derive the date-desc order in JS (date_printed is 'YYYY-MM-DD',
+  // so a string compare is chronological). Saves a second identical query.
   const bySerialAsc = BatchModel.findAll(scope.sql, scope.params, 'b.start_serial ASC');
+  const byDateDesc = [...bySerialAsc].sort(
+    (a, b) => b.date_printed.localeCompare(a.date_printed) || b.id - a.id
+  );
 
   const seen = new Set();
   const lastByStudyMap = {};
