@@ -15,6 +15,10 @@ permissions:
 jobs:
   snyk:
     runs-on: ubuntu-latest
+    env:
+      SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      # Snyk organization to report to. Override by setting a repo variable SNYK_ORG.
+      SNYK_ORG: ${{ vars.SNYK_ORG || '90e235c0-ec31-4e8a-bd5a-2e843927566c' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,9 +35,7 @@ jobs:
       - name: Snyk Open Source scan
         id: oss
         continue-on-error: true # report, don't fail the build (gate step below does that)
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test --all-projects --severity-threshold=high --sarif-file-output=snyk-oss.sarif
+        run: snyk test --all-projects --org=$SNYK_ORG --severity-threshold=high --sarif-file-output=snyk-oss.sarif
 
       - name: Upload Open Source results
         if: always()
@@ -48,9 +50,7 @@ jobs:
       - name: Snyk Code scan
         id: code
         continue-on-error: true
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk code test --sarif-file-output=snyk-code.sarif
+        run: snyk code test --org=$SNYK_ORG --sarif-file-output=snyk-code.sarif
 
       - name: Upload Snyk Code results
         if: always()
@@ -88,6 +88,4 @@ jobs:
       # Runs last so reports upload and the email fires first. No continue-on-error,
       # so a critical vuln (deps or code) makes the job — and the commit/PR — red.
       - name: Fail build on critical vulnerabilities
-        env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        run: snyk test --all-projects --severity-threshold=critical
+        run: snyk test --all-projects --org=$SNYK_ORG --severity-threshold=critical
