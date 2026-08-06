@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #eef2f7;
+  --surface: #f4f7fa;
+  --surface-2: #e8eef5;
+  --ink: #18181b;
+  --muted: #5c6570;
+  --faint: #8b95a5;
+  --line: #d4dce8;
+  --line-2: #e2e9f2;
+  --accent: #4338ca;
+  --accent-hover: #3730a3;
+  --accent-soft: #e4e9ff;
+  --on-accent: #ffffff;
+  --ok: #15803d;
+  --ok-soft: #e3f2ea;
+  --warn: #b45309;
+  --warn-soft: #f8ede0;
+  --danger: #b91c1c;
+  --danger-soft: #f9e8e8;
+  --gap-stripe: #f4f7fa;
+  --backdrop: rgba(15, 20, 25, 0.45);
+  --shadow: 0 1px 2px rgba(15, 20, 25, 0.05), 0 8px 24px -12px rgba(15, 20, 25, 0.12);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1419;
+  --surface: #1a222d;
+  --surface-2: #242d3a;
+  --ink: #e8edf4;
+  --muted: #9aa5b5;
+  --faint: #6b7788;
+  --line: #2e3a4a;
+  --line-2: #252f3d;
+  --accent: #818cf8;
+  --accent-hover: #6366f1;
+  --accent-soft: #2a3050;
+  --on-accent: #0f1419;
+  --ok: #4ade80;
+  --ok-soft: #1a2e24;
+  --warn: #fbbf24;
+  --warn-soft: #2e2618;
+  --danger: #f87171;
+  --danger-soft: #2e1a1a;
+  --gap-stripe: #1a222d;
+  --backdrop: rgba(0, 0, 0, 0.62);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 12px 32px -12px rgba(0, 0, 0, 0.55);
+}
+
+@layer base {
+  html, body, #root { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    transition: background 0.25s ease, color 0.25s ease;
+  }
+  a { color: var(--accent); }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border p-4 sm:p-5;
+    background: var(--surface);
+    border-color: var(--line);
+  }
+  /* Tables scroll horizontally instead of breaking the layout on small screens */
+  .table-scroll {
+    @apply overflow-x-auto rounded-xl border;
+    border-color: var(--line);
+    background: var(--surface);
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-scroll table { @apply min-w-[640px]; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer transition-colors;
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--ink);
+  }
+  .btn:hover { background: var(--line-2); }
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-danger {
+    background: var(--danger-soft);
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .btn-danger:hover { background: var(--danger); color: var(--on-accent); }
+  .btn:disabled { @apply opacity-50 cursor-not-allowed; }
+  .input {
+    @apply w-full rounded-lg border px-3 py-2.5 outline-none;
+    background: var(--surface);
+    border-color: var(--line);
+    color: var(--ink);
+  }
+  .input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+  .pill-study { background: var(--accent-soft); color: var(--accent); }
+  .pill-ok { background: var(--ok-soft); color: var(--ok); }
+  .pill-warn { background: var(--warn-soft); color: var(--warn); }
+  .pill-danger { background: var(--danger-soft); color: var(--danger); }
+  .pill-internal { background: var(--line-2); color: var(--muted); }
+  .banner { @apply rounded-lg px-3.5 py-2.5 text-sm mb-4; }
+  .banner-error { background: var(--danger-soft); color: var(--danger); }
+  .banner-ok { background: var(--ok-soft); color: var(--ok); }
+  .banner-warn { background: var(--warn-soft); color: var(--warn); }
+  .mono { font-family: var(--font-mono); }
+  .page-title { font-family: var(--font-display); @apply text-2xl font-semibold tracking-tight sm:text-3xl; }
+  .eyebrow { font-family: var(--font-mono); @apply text-[11px] uppercase tracking-widest; color: var(--faint); }
+}
