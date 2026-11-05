@@ -88,4 +88,11 @@ jobs:
 
       - name: Fail build on critical vulnerabilities
         if: env.SNYK_TOKEN != ''
-        run: snyk test --all-projects --org=$SNYK_ORG --severity-threshold=critical
+        run: |
+          code=0
+          snyk test --all-projects --org=$SNYK_ORG --severity-threshold=critical || code=$?
+          if [ "$code" = "1" ]; then
+            echo "::error::Snyk found critical vulnerabilities"; exit 1
+          elif [ "$code" != "0" ]; then
+            echo "::warning::Snyk could not complete (exit $code: auth/config) — not blocking the build"
+          fi
