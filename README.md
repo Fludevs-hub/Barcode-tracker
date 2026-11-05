@@ -1,10 +1,25 @@
 # Barcode Tracker
 
-An installable **PWA** for tracking barcode batches and keeping their serial sequence continuous and accountable. Backed by a real **SQLite** database, with **role-based access** enforced on the server. Includes **multistep JWT authentication** (password + optional TOTP) and a **super admin** tier for full user/role/study control.
+> Turn the lab's handwritten barcode-printing ledger into a searchable, auditable web app — so every print batch is logged, every serial range stays gap-free, and who printed what is never in question.
 
-The app is split into a **Node/Express MVC API** (`backend/`) and a **React + Vite + Tailwind** frontend (`frontend/`).
+## Overview
 
-Pre-seeded with the studies and barcode ranges from the original handwritten ledger.
+Research labs print barcodes in **batches** (per study, in numbered serial ranges) and record each run by hand in a paper ledger: date, study, start/end barcode, signature. That ledger is hard to search, easy to mis-transcribe, and gives no quick answer to *"what was the last range we printed?"* or *"is there a gap in the sequence?"*.
+
+**Barcode Tracker** digitizes that workflow. It's an installable **PWA** where authorized staff record each print batch — including a **photo of the start and end barcode** (or a **camera scan** of them) — and the app keeps the running serial sequence, flags **gaps and overlaps**, and shows the latest activity per study at a glance. Access is **role-based and enforced on the server**, so an ordinary user only ever sees and records against the studies assigned to them, while a **super admin** controls everyone's roles and study access.
+
+It's pre-seeded with the studies and barcode ranges from the original ledger, so it's useful on first launch.
+
+## Features
+
+- **Batch logging** — record each print run: study, date, set count, start/end barcode (serial + alpha code), signature, and internal/vendor source.
+- **Barcode photos & camera scan** — attach a photo of the start and end barcode, or scan them with the device camera (ZXing); images are served only via short-lived signed URLs.
+- **Sequence integrity** — the serial space is tracked end to end; the dashboard flags **gaps** and **overlaps** and refuses ranges that collide with an existing batch.
+- **Monitoring dashboard** — last print overall, last print **per study**, recent printing events, and totals at a glance.
+- **Role-based access (4 tiers)** — User (assigned studies only) · Operator (all studies) · Admin (manage studies + operator/user accounts) · Super Admin (full control, incl. promoting/demoting admins).
+- **Multistep JWT auth** — password + optional **TOTP 2FA**, httpOnly refresh-cookie rotation, per-IP rate limiting; optional **Google / Microsoft** sign-in.
+- **Installable & offline-capable PWA** — add to home screen, works on phones in the field.
+- **Studies & users management** — create studies, manage accounts, and assign per-user study access from the UI.
 
 ---
 
@@ -17,12 +32,12 @@ npm install
 npm run dev
 ```
 
-- **API:** http://localhost:3000  
-- **Frontend (dev):** http://localhost:5173 — Vite proxies `/api` and `/uploads` to the backend
+- **API:** <http://localhost:3000>  
+- **Frontend (dev):** <http://localhost:5173> — Vite proxies `/api` and `/uploads` to the backend
 
-Use **`npm run dev`** (not `npm start` alone) during development — it starts **both** the API and the Vite dev server. Open the UI at **http://localhost:5173**.
+Use **`npm run dev`** (not `npm start` alone) during development — it starts **both** the API and the Vite dev server. Open the UI at **<http://localhost:5173>**.
 
-Verify the connection: http://localhost:3000/api/health should return `{ "ok": true }`.
+Verify the connection: <http://localhost:3000/api/health> should return `{ "ok": true }`.
 
 First run creates `data/barcode.db` and an `uploads/` folder for barcode photos. By default it bootstraps a **single super-admin** account with a **random password printed once to the console** — copy it from the startup logs and change it after signing in. To instead load the demo accounts and sample ledger (local dev only), start with `SEED_DEMO=1`.
 
@@ -33,7 +48,7 @@ npm run build
 npm start
 ```
 
-Serves the built React app and API from http://localhost:3000.
+Serves the built React app and API from <http://localhost:3000>.
 
 > **Upgrading from v1.x?** Just start it — the database migrates in place. Existing admins may be promoted to `super_admin`, MFA columns are added, and your batches are preserved.
 
@@ -42,7 +57,7 @@ Serves the built React app and API from http://localhost:3000.
 These weak, publicly-known logins are **not** created by default. They load only when you start the app with `SEED_DEMO=1`, for local demos:
 
 | Role | Username | Password |
-|------|----------|----------|
+| ------ | ---------- | ---------- |
 | Super Admin | `superadmin` | `super123` |
 | Admin | `admin` | `admin123` |
 | Operator | `operator` | `operator123` |
@@ -128,7 +143,7 @@ If 2FA is enabled on the account, OAuth still requires the TOTP step after provi
 ## Roles
 
 | Capability | User | Operator | Admin | Super Admin |
-|---|:---:|:---:|:---:|:---:|
+| --- | :---: | :---: | :---: | :---: |
 | View dashboard & batches | assigned studies only | all | all | all |
 | Record a batch | assigned studies only | any study | any study | any study |
 | Manage studies | | | ✓ | ✓ |
@@ -137,10 +152,69 @@ If 2FA is enabled on the account, OAuth still requires the TOTP step after provi
 
 ---
 
+## API reference
+
+All routes are under `/api`. Auth is a Bearer access token (`Authorization: Bearer <token>`) unless noted; the refresh token is an httpOnly cookie. **Admin+** = `super_admin` or `admin`.
+
+### Auth
+
+| Method | Path | Access | Notes |
+| --- | --- | --- | --- |
+| POST | `/api/auth/register` | Public | Rate-limited; non-enumerable response |
+| POST | `/api/auth/login` | Public | Returns access token, or `{ step: "mfa", mfa_token }` |
+| POST | `/api/auth/verify-mfa` | Public | `mfa_token` + 6-digit TOTP → access token |
+| POST | `/api/auth/refresh` | Cookie | Rotates refresh token |
+| POST | `/api/auth/logout` | Cookie | Revokes refresh token |
+| GET | `/api/auth/me` | Auth | Current user |
+| GET | `/api/auth/providers` | Public | Which OAuth providers are configured |
+| GET | `/api/auth/google` · `/microsoft` | Public | Start OAuth |
+| GET | `/api/auth/{google,microsoft}/callback` | Public | OAuth callback |
+| POST | `/api/auth/mfa/setup` · `/enable` · `/disable` | Auth | Manage TOTP 2FA |
+| GET | `/api/auth/signup/studies` | Public | Studies list for sign-up |
+| POST | `/api/auth/onboarding/studies` | Auth | Request study access |
+
+### Batches
+
+| Method | Path | Access | Notes |
+| --- | --- | --- | --- |
+| GET | `/api/batches` | Auth | Scoped to the caller's studies |
+| GET | `/api/batches/:id` | Auth | |
+| POST | `/api/batches` | Auth | Users limited to assigned studies; rejects overlapping ranges |
+| PUT | `/api/batches/:id` | Admin+ | |
+| DELETE | `/api/batches/:id` | Admin+ | |
+| GET | `/api/continuity` | Auth | Gaps/overlaps across the serial sequence |
+
+### Studies
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | `/api/studies` | Auth (scoped) |
+| POST | `/api/studies` | Admin+ |
+| PUT | `/api/studies/:id` | Admin+ |
+
+### Users
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | `/api/users` | Admin+ |
+| POST | `/api/users` | Admin+ |
+| PUT | `/api/users/:id` | Super Admin |
+| PUT | `/api/users/:id/role` | Admin+ |
+| PUT | `/api/users/:id/studies` | Admin+ |
+
+### Other
+
+| Method | Path | Access |
+| --- | --- | --- |
+| GET | `/api/dashboard` | Auth (scoped) |
+| GET | `/api/health` | Public → `{ "ok": true }` |
+
+---
+
 ## Scripts
 
 | Command | Description |
-|---------|-------------|
+| --------- | ------------- |
 | `npm run dev` | Start API + Vite dev server concurrently (recommended for development) |
 | `npm run dev:backend` | API only (port 3000) |
 | `npm run dev:frontend` | Vite dev server only (port 5173) |
@@ -183,7 +257,7 @@ Required repository secret: `SNYK_TOKEN`. Optional (for the alert email): `MAIL_
 Copy `.env.example` → `.env`. Common keys:
 
 | Variable | Purpose |
-|---|---|
+| --- | --- |
 | `JWT_SECRET` | Signing key; auto-generated to `.env` on first run if unset. Set explicitly in production. |
 | `PORT` / `DB_PATH` / `UPLOAD_DIR` | API port, SQLite path, upload folder. |
 | `MFA_ISSUER` | Label shown in authenticator apps. |
@@ -193,6 +267,61 @@ Copy `.env.example` → `.env`. Common keys:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` / `GOOGLE_REDIRECT_URI` | Google OAuth. |
 | `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` / `MICROSOFT_REDIRECT_URI` | Microsoft OAuth. |
 | `VITE_API_BASE` | Frontend → backend base URL (leave empty in dev to use the Vite proxy). |
+
+---
+
+## Deployment
+
+The app is a single Node process that serves the built React SPA **and** the API, backed by a SQLite file on disk. Serve it over **HTTPS** — required for `Secure` cookies, HSTS, and PWA install.
+
+### Single host (recommended)
+
+Same-origin keeps the refresh cookie on its simple `SameSite=Lax` default.
+
+```bash
+npm install
+npm run build          # builds frontend/dist
+NODE_ENV=production \
+JWT_SECRET=<32+ random bytes> \
+npm start              # serves SPA + API on $PORT (default 3000)
+```
+
+Put a TLS-terminating reverse proxy (Caddy, nginx, or your platform's router) in front of `:3000`. Set at least `JWT_SECRET`; set OAuth and `FRONTEND_URL` / `API_PUBLIC_URL` if used. **Persist two paths across deploys/restarts** — they hold your data:
+
+- `data/` — the SQLite DB (`barcode.db` + its `-wal`/`-shm`)
+- `uploads/` — barcode photos
+
+On a platform with ephemeral disk (most PaaS), mount a volume for both, or point `DB_PATH` / `UPLOAD_DIR` at persistent storage. Back up `data/barcode.db` and `uploads/` together.
+
+### Docker
+
+No Dockerfile ships in the repo; this minimal one works as a starting point:
+
+```dockerfile
+FROM node:22-slim
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY frontend/package*.json frontend/
+RUN npm ci --prefix frontend
+COPY . .
+RUN npm run build
+ENV NODE_ENV=production PORT=3000
+VOLUME ["/app/data", "/app/uploads"]
+EXPOSE 3000
+CMD ["npm", "start"]
+```
+
+Run with `JWT_SECRET` injected and the two volumes mounted. Still terminate TLS at a proxy in front.
+
+### Split origin (SPA and API on different domains)
+
+Host the static `frontend/dist` (CDN/static host) separately from the API:
+
+1. Build the SPA with `VITE_API_BASE=https://api.example.com`.
+2. On the API, set `FRONTEND_URL=https://app.example.com` (CORS allowlist) and `API_PUBLIC_URL` for OAuth redirects.
+3. Change the refresh cookie to `SameSite=None; Secure` in `backend/middleware/auth.js` (`refreshCookieOptions`) — cross-site cookies require it.
+4. Update each OAuth provider's redirect URIs to the API's public callback URLs.
 
 ---
 
